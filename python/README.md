@@ -26,7 +26,7 @@ pipenv install
 2. Create an access token to consume Qinertia Cloud API https://my.sbg-systems.com/apikeys and note the key and secret
 3. Edit `main.py` and change every `CHANGE_ME` variables
 
-Please find below an example value for each Postman variable to set:
+Please find below an example value for each variable to set:
 
 | Variable             | Example value                        |
 | -------------------- | ------------------------------------ |
@@ -44,7 +44,7 @@ pipenv run python src/main.py
 
 ## Monitor progress
 
-The processing can take a few minutes but the code sample continuously monitor the progression.  
+The processing can take a few minutes but the code sample continuously monitor the progression.
 For production environment, it is recommended to use web hooks to monitor progress/status.
 
 Once the processing is done, you should get the results in `data/output` directory.

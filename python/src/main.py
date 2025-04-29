@@ -15,15 +15,15 @@ region              = "eu-west-3"	# Select the AWS processing cluster: eu-west-3
 #
 # Input/output files and json processing file selection
 #
-input_dir = "../data/input"
-output_dir = "../data/output"
+input_dir = "data/input"
+output_dir = "data/output"
 processing_json = json.load(open("data/processing.json"))
 
 #
 # Qinertia Cloud API service urls (don't edit)
 #
 auth_url = "https://account.sbg-systems.com/realms/sbg/protocol/openid-connect/token"
-qinertia_cloud_url = "https://qinertia-api.sbg-systems.com/api/v1"
+qinertia_cloud_url = "https://qinertia-api.sbg-systems.com/api/v2"
 
 qinertia_cloud_api = api.Api(auth_url, qinertia_cloud_url)
 
@@ -36,24 +36,28 @@ qinertia_cloud_api.authenticate(access_token_key, access_token_secret)
 print("Authentication successful")
 
 #
-# Create project
+# Create container
 #
-project = qinertia_cloud_api.create_project(organization_id, region)
-project_id = project["id"]
-print("Project created")
-print(json.dumps(project, indent=2))
+container = qinertia_cloud_api.create_container(organization_id, region)
+container_id = container["id"]
+print("Container created")
+print(json.dumps(container, indent=2))
 
 #
 # Upload input files
 #
-input_post_data = qinertia_cloud_api.get_input_post_data(project_id)
-qinertia_cloud_api.upload_folder(input_dir, input_post_data)
+print(f"Uploading files from {input_dir} to container")
+qinertia_cloud_api.upload_folder(input_dir, container_id, "input")
 print("Upload input files completed")
 
 #
 # Start processing
 #
-processing = qinertia_cloud_api.start_processing(project_id, processing_json)
+processing = qinertia_cloud_api.start_processing(
+    organization_id,
+    container_id,
+    processing_json,
+)
 processing_id = processing["id"]
 print("Processing started")
 print(json.dumps(processing, indent=2))
@@ -62,7 +66,7 @@ print(json.dumps(processing, indent=2))
 # Wait for processing to be over
 # Pooling is easier to set up than webhooks. But you should use webhooks in production
 #
-end_statuses = ["processed", "failed", "canceled"]
+end_statuses = ["processed", "canceled"]
 processing_is_over = False
 while not processing_is_over:
     processing = qinertia_cloud_api.get_processing(processing_id)
@@ -76,5 +80,13 @@ print("\nProcessing is over")
 #
 # Download output files
 #
-output_files = qinertia_cloud_api.get_output_files(project_id)
+output_files = qinertia_cloud_api.get_processing_output_files(processing_id)
 qinertia_cloud_api.download_output_files(output_dir, output_files)
+print("Download output files completed")
+
+#
+# Delete container
+#
+print(f"Deleting container {container_id}")
+qinertia_cloud_api.delete_container(container_id)
+print("Container deleted successfully")

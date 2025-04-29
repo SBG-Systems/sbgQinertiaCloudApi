@@ -27,7 +27,7 @@ export async function waitForProcessing(processingId: string, callback?: (p: Pro
             }
             lastStatus = processing.status;
 
-            if (lastStatus !== ProcessingStatus.Queuing && lastStatus !== ProcessingStatus.Processing && lastStatus !== ProcessingStatus.Pending) {
+            if (lastStatus !== ProcessingStatus.Processing && lastStatus !== ProcessingStatus.Pending) {
                 clearInterval(intervalId);
                 resolve(processing);
             }

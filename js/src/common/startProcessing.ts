@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import apiInstance from "./apiInstance";
 import getEnvVariable from "./getEnvVariable";
-import { PresignedPost } from './QinertiaCloudApi/models';
+import { ContainerFile, ContainerFileType } from './QinertiaCloudApi/models';
 
 const getFolderFiles = (folderPath: string) => {
     const folderContent = fs.readdirSync(folderPath);
@@ -12,75 +12,106 @@ const getFolderFiles = (folderPath: string) => {
         const filePath = path.join(folderPath, fileName);
         const fileStat = fs.statSync(filePath);
         if (fileStat.isFile()) {
-            files.push(filePath);
+            files.push({ path: filePath, size: fileStat.size });
         } else if (fileStat.isDirectory()) {
             const subfolderFiles = getFolderFiles(filePath);
             files.push(...subfolderFiles);
         }
         return files;
-    }, [] as string[]);
+    }, [] as { path: string, size: number }[]);
 }
 
-const uploadFiles = async (files: string[], postData: PresignedPost, folderPath: string) => {
-    const prefix = (postData.fields.key || '').replace('${filename}', '');
-    const promises = files.map(async (filePath) => {
-        const posixFilePath = filePath.replace(/\\/g, '/');
-        const uploadFormData = new FormData();
-        const relativeFilePath = posixFilePath.replace(folderPath, '');
-        postData.fields.key = path.posix.join(prefix, relativeFilePath);
-        Object.entries(postData.fields).map(([key, value]) => uploadFormData.append(key, value));
-        uploadFormData.append('file', fs.createReadStream(filePath));
-        try {
-            const contentLength = await new Promise<number>((resolve, reject) => uploadFormData.getLength((err, length) => {
-                if (err) reject(err);
-                resolve(length);
-            }))
+export const uploadFile = async (file: ContainerFile, localPath: string) => {
+    if (!file.uploadInfo)
+    {
+        console.log('No upload info for file', file.path);
+        console.log(file);
+        return;
+    }
 
-            await axios({
-                method: 'POST',
-                url: postData.url,
-                headers: {
-                    ...uploadFormData.getHeaders(),
-                    'Content-Length': contentLength,
-                },
-                data: uploadFormData,
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-            })
-        } catch (err: any) {
-            if ((err as AxiosError).toJSON) {
-                const axiosError = err as AxiosError;
-                console.log(axiosError.response?.data)
-                console.warn(err.toJSON());
-                throw new Error(`Failed to upload file: ${filePath}`);
-            }
-            throw err;
+    const uploadFormData = new FormData();
+    Object.entries(file.uploadInfo.fields).map(([key, value]) => uploadFormData.append(key, value));
+    uploadFormData.append('file', fs.createReadStream(localPath));
+
+    try {
+        const contentLength = await new Promise<number>((resolve, reject) => uploadFormData.getLength((err, length) => {
+            if (err) reject(err);
+            resolve(length);
+        }));
+
+        await axios({
+            method: 'POST',
+            url: file.uploadInfo.url,
+            headers: {
+                ...uploadFormData.getHeaders(),
+                'Content-Length': contentLength,
+            },
+            data: uploadFormData,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+        });
+    } catch (err: any) {
+        if ((err as AxiosError).toJSON) {
+            const axiosError = err as AxiosError;
+            console.log(axiosError.response?.data)
+            console.warn(err.toJSON());
+            throw new Error(`Failed to upload file: ${file.path}`);
         }
-    });
-    await Promise.all(promises);
+        throw err;
+    }
 }
 
-export async function startProcessing(region: string, projectName: string, processingJson: any, inputFolder?: string, resourceFolder?: string) {
-    const project = await apiInstance.createProject(getEnvVariable('ORGANIZATION_ID'), {
+const uploadFiles = async (containerId: string, folderPath: string, fileType: ContainerFileType) =>
+{
+    const files = getFolderFiles(folderPath).filter((f) => !f.path.endsWith('.gitkeep'));
+
+    if (files.length === 0) {
+        return;
+    }
+
+    const containerFiles = await apiInstance.addContainerFiles(containerId, {
+        files: files.map((file) =>
+        {
+            //
+            // Get relative path to remove folderPath
+            // filePath: data/input/base/sbgs167o.20d
+            // qinertiaCloudPath: base/sbgs167o.20d
+            //
+            const posixFilePath = file.path.replace(/\\/g, '/');
+            const qinertiaCloudPath = path.posix.relative(folderPath, posixFilePath);
+            return {
+                path: qinertiaCloudPath,
+                type: fileType,
+                size:file.size,
+            };
+        }),
+    });
+
+    for (const file of containerFiles) {
+        const localPath = path.join(folderPath, file.path);
+        console.log(`Uploading file to container: ${file.path} (${localPath})`);
+        await uploadFile(file, localPath);
+    }
+}
+
+export async function startProcessing(region: string, processingName: string, processingJson: any, inputFolder?: string, resourceFolder?: string) {
+    const container = await apiInstance.createContainer(getEnvVariable('ORGANIZATION_ID'), {
         region: region,
     });
-    console.log(`Project ${projectName} created`);
-    console.log(project);
+    console.log(`Container created`);
+    console.log(container);
 
     if (inputFolder) {
-        const inputPostData = await apiInstance.getInputPostData(project.id);
-        const inputFolderFiles = getFolderFiles(inputFolder);
-        await uploadFiles(inputFolderFiles, inputPostData, inputFolder);
+        await uploadFiles(container.id, inputFolder, ContainerFileType.Input);
     }
 
     if (resourceFolder) {
-        const resourcesPostData = await apiInstance.getResourcesPostData(project.id);
-        const resourcesFolderFiles = getFolderFiles(resourceFolder);
-        await uploadFiles(resourcesFolderFiles, resourcesPostData, resourceFolder);
+        await uploadFiles(container.id, resourceFolder, ContainerFileType.Resources);
     }
 
-    const processing = await apiInstance.startProcessing(project.id, { processingJson });
-    console.log(`Processing started on project ${projectName}`);
+    const processing = await apiInstance.startProcessing(getEnvVariable('ORGANIZATION_ID'), { containerId: container.id, name: processingName, processingJson });
+    console.log(`Processing ${processingName} started`);
     console.log(processing);
-    return { project, processing };
+
+    return { container, processing };
 }

@@ -1,4 +1,4 @@
-# Qinertia Cloud API
+# Qinertia Cloud API Exalokes
 Qinertia Cloud API is a professional GNSS/INS post processing SaaS solution.
 
 This modern GNSS/INS Post Processing Software can be used with any RTK capable GNSS receivers to deliver centimeter-level Post Processed Kinematic solution (PPK).\
@@ -37,7 +37,8 @@ SBG Systems has designed three code samples to ease as much as possible evaluati
  - `python` is a simple Python code sample targeting computer to cloud workflows.
  
 Each code sample execute the following steps:
- - Create a new project
+ - Create a new container
+ - Add container files
  - Upload data to Amazon S3
  - Start processing job
  - Poll processing job status

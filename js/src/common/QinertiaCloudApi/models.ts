@@ -1,87 +1,141 @@
 export enum ProcessingStatus {
-    Queuing = "queuing",
-    Pending = "pending",
-    Processing = "processing",
-    Processed = "processed",
-    Failed = "failed",
-    Canceled = "canceled",
-    Archived = "archived",
+	Pending = "pending",
+	Processing = "processing",
+	Processed = "processed",
+	Canceled = "canceled",
+	Archived = "archived",
 }
 
 export enum ProcessingStep {
-    Import = "import",
-    BaseStation = "base_station",
-    Preprocessing = "preprocessing",
-    Processing = "processing",
-    Export = "export",
-    Report = "report",
+	Import = "import",
+	BaseStation = "base_station",
+	Preprocessing = "preprocessing",
+	Processing = "processing",
+	Export = "export",
+	Report = "report",
 }
 
 export enum ProcessingType {
-    Gnss = "gnss",
-    Ins = "ins",
+	Gnss = "gnss",
+	Ins = "ins",
 }
 
-export interface Metadata {
-    key: string;
-    value: string;
+export enum ProcessingResult {
+	Succeeded = "succeeded",
+	Failed = "failed",
 }
+
+export enum ContextStatus {
+	Valid = "valid",
+	Archived = "archived",
+}
+
+export enum ContainerFileType {
+	Input = 'input',
+	Resources = 'resources',
+}
+
+export enum ContainerFileStatus {
+	Pending = 'pending',
+	Ready = 'ready',
+	Deleting = 'deleting',
+	Deleted = 'deleted',
+}
+
+export type Metadata = Record<string, string>;
 
 export interface ErrorCount {
-    errors: number;
-    warnings: number;
+	errors: number;
+	warnings: number;
 }
 
-export interface Project {
-    id: string;
-    region: string;
-    createdAt: string;
-    updatedAt: string;
-    creatorName: string;
-    organizationName: string;
-    creatorId: string;
-    organizationId: string;
-    lastProcessing: Processing | null;
-    metadata: Metadata[];
+export interface ContainerFile {
+	id: string;
+	type: ContainerFileType;
+	status: ContainerFileStatus;
+	size: number | null;
+	path: string;
+	createdAt: string;
+	updatedAt: string;
+	creatorId: string;
+	metadata: Metadata;
+	uploadInfo: PresignedPost | null;
 }
 
 export interface Processing {
-    id: string;
-    type: ProcessingType;
-    status: ProcessingStatus;
-    duration: number | null;
-    processingStep: ProcessingStep | null;
-    processingProgress: number | null;
-    createdAt: string;
-    updatedAt: string;
-    creatorName: string;
-    creatorId: string;
-    errorCount: ErrorCount;
-    missionLength: number | null;
-    missionLocationCountry: string | null;
-    missionLocationRegion: string | null;
-    missionLocationPlace: string | null;
-    metadata: Metadata[];
+	id: string;
+	name: string;
+	type: ProcessingType;
+	status: ProcessingStatus;
+	region: string;
+	processingResult: ProcessingResult | null;
+	processingDuration: number | null;
+	processingStep: ProcessingStep | null;
+	processingProgress: number | null;
+	archiveScheduledAt: string;
+	createdAt: string;
+	updatedAt: string;
+	creatorId: string;
+	organizationId: string;
+	containerId: string | null;
+	errorCount: ErrorCount;
+	missionLength: number | null;
+	missionLocationCountry: string | null;
+	missionLocationRegion: string | null;
+	missionLocationPlace: string | null;
+	metadata: Metadata;
+	processingJson: ProcessingJson;
 }
 
 export type ProcessingJson = any;
 
-export interface CreateProject {
-    region: string;
-    metadata?: Metadata[];
-}
-
-export interface StartProcessing {
-    processingJson: ProcessingJson;
-    metadata?: Metadata[];
+export type StartProcessing = {
+	containerId: string;
+	processingJson: ProcessingJson;
+	reporterEmail?: string;
+	metadata?: Metadata;
+	name?: string;
 }
 
 export interface PresignedPost {
-    url: string;
-    fields: Record<string, string>;
+	url: string;
+	fields: Record<string, string>;
 }
 
 export interface OutputData {
-    path: string;
-    url: string;
+	path: string;
+	url: string;
+}
+
+export type CreateContainerFile = {
+	path: string;
+	type: ContainerFileType;
+	size: number;
+	metadata?: Metadata;
+}
+
+export type CreateContainer = {
+	region: string;
+	files?: CreateContainerFile[];
+	metadata?: Metadata;
+}
+
+export interface AddContainerFiles {
+	files: CreateContainerFile[];
+}
+
+export type AddFilesToContainerInput = {
+	files: CreateContainerFile[];
+}
+
+export interface Container {
+	id: string;
+	region: string;
+	status: ContextStatus;
+	createdAt: string;
+	updatedAt: string;
+	creatorId: string;
+	organizationId: string;
+	metadata: Metadata;
+	files: ContainerFile[];
 }
