@@ -1,3 +1,4 @@
+import json
 import requests
 import copy
 import os
@@ -88,8 +89,8 @@ class Api():
         if not (response.status_code >= 200 and response.status_code <= 299):
             raise sbg_error.SbgError(response)
 
-    def create_project(self, organization_id, region):
-        """Create a project.
+    def create_container(self, organization_id, region):
+        """Create a container.
 
         Parameters
         ----------
@@ -100,148 +101,157 @@ class Api():
 
         Returns
         -------
-        Project
+        Container
+            Container object
         """
-
         api_headers = self._get_http_headers()
-        url = self._qinertia_cloud_url + "/organizations/{0}/projects".format(organization_id)
+        url = self._qinertia_cloud_url + "/organizations/{0}/containers".format(organization_id)
         payload = {
             "region": region,
         }
         response = requests.request("POST", url, headers=api_headers, json=payload)
         self._handle_http_error(response)
 
-        project = response.json()
-        return project
+        container = response.json()
+        return container
 
-    def _get_upload_post_data(self, project_id, type):
-        """Get upload POST data.
+    def add_container_files(self, container_id, files):
+        """Add files to a container.
 
         Parameters
         ----------
-        project_id : str
-            Project id.
-        type : str
-            Data type - "input" or "resources".
+        container_id : str
+            Container id.
+        files : list
+            List of file objects with path, type, and size.
 
         Returns
         -------
-        UploadPostData
+        list
+            List of ContainerFile objects with uploadInfo
         """
+        if not files:
+            raise ValueError("Files list is empty")
 
         api_headers = self._get_http_headers()
-        url = self._qinertia_cloud_url + "/projects/{0}/{1}".format(project_id, type)
-        response = requests.request("GET", url, headers=api_headers)
+        url = self._qinertia_cloud_url + "/containers/{0}/files".format(container_id)
+        payload = {
+            "files": files
+        }
+
+        response = requests.request("POST", url, headers=api_headers, json=payload)
         self._handle_http_error(response)
 
-        presigned_post = response.json()
-        return presigned_post
+        container_files = response.json()
+        return container_files
 
-    def get_input_post_data(self, project_id):
-        """Get input POST data.
-
-        Parameters
-        ----------
-        project_id : str
-            Project id.
-
-        Returns
-        -------
-        UploadPostData
-        """
-
-        return self._get_upload_post_data(project_id, "input")
-
-    def get_resources_post_data(self, project_id):
-        """Get resources POST data.
-
-        Parameters
-        ----------
-        project_id : str
-            Project id.
-
-        Returns
-        -------
-        UploadPostData
-        """
-
-        return self._get_upload_post_data(project_id, "resources")
-
-    def upload_file(self, file_path, target_path, upload_post_data):
-        """Upload a file using upload POST data.
+    def upload_file(self, file_path, container_file):
+        """Upload a file using container file upload info.
 
         Parameters
         ----------
         file_path : str
             Local file path.
-        target_path : str
-            Relative path where to store the file.
-        upload_post_data : UploadPostData
-            Upload POST data.
+        container_file : dict
+            Container file object with uploadInfo.
 
         Returns
         -------
         None
         """
 
-        url = upload_post_data["url"]
-        fields = upload_post_data["fields"]
-        print("Uploading file {0}".format(file_path))
+        upload_info = container_file["uploadInfo"]
+        url = upload_info["url"]
+        fields = upload_info["fields"]
+        print(f"Uploading file {file_path}")
 
         #
         # Copy POST data to avoid modifying reference as it's being reused again.
         #
         data = copy.copy(fields)
-        data["key"] = data["key"].replace("${filename}", target_path)
-        files=[
+
+        files = [
             ("file", ("", open(file_path, "rb"), "application/octet-stream"))
         ]
 
         response = requests.request("POST", url, data=data, files=files)
         self._handle_http_error(response)
 
-    def upload_folder(self, folder_path, upload_post_data):
-        """Recursivly upload all files inside a folder using upload POST data.
+    def upload_folder(self, folder_path, container_id, file_type="input"):
+        """Recursively upload all files inside a folder to a container.
 
         Parameters
         ----------
         folder_path : str
             Local folder path.
-        upload_post_data : UploadPostData
-            Upload POST data.
+        container_id : str
+            Container ID.
+        file_type : str
+            Type of files ("input" or "resources").
 
         Returns
         -------
         None
         """
-
+        files_to_upload = []
         folder_abs_path = posixpath.abspath(folder_path)
+
         for currentpath, folders, files in os.walk(folder_abs_path):
             for file in files:
                 file_path = posixpath.join(currentpath, file)
                 relative_path = file_path[(len(folder_abs_path) + 1):]
-                self.upload_file(file_path, relative_path, upload_post_data)
+                file_size = posixpath.getsize(file_path)
 
-    def start_processing(self, project_id, processing_json):
+                files_to_upload.append({
+                    "localPath": file_path,
+                    "relativePath": relative_path,
+                    "size": file_size
+                })
+
+        container_files_data = [
+            {
+                "path": file["relativePath"],
+                "type": file_type,
+                "size": file["size"]
+            } for file in files_to_upload
+        ]
+
+        container_files = self.add_container_files(container_id, container_files_data)
+
+        for container_file in container_files:
+            matching_file = next(
+                (f for f in files_to_upload if f["relativePath"] == container_file["path"]),
+                None
+            )
+
+            if matching_file:
+                self.upload_file(matching_file["localPath"], container_file)
+
+    def start_processing(self, organization_id, container_id, processing_json, name=None):
         """Start processing.
 
         Parameters
         ----------
-        project_id : str
-            Project ID.
-        processing_json : ProcessingJson
-            Processing region.
+        organization_id : str
+            Organization ID.
+        container_id : str
+            Container ID.
+        processing_json : dict
+            Processing configuration JSON.
 
         Returns
         -------
         Processing
+            Processing object
         """
-
         api_headers = self._get_http_headers()
-        url = self._qinertia_cloud_url + "/projects/{0}/processings".format(project_id)
+        url = self._qinertia_cloud_url + "/organizations/{0}/processings".format(organization_id)
+
         payload = {
-            "processingJson": processing_json,
+            "containerId": container_id,
+            "processingJson": processing_json
         }
+
         response = requests.request("POST", url, headers=api_headers, json=payload)
         self._handle_http_error(response)
         processing = response.json()
@@ -267,25 +277,25 @@ class Api():
         processing = response.json()
         return processing
 
-    def get_output_files(self, project_id):
+    def get_processing_output_files(self, processing_id):
         """Get processing output files.
 
         Parameters
         ----------
-        project_id : str
-            Project ID.
+        processing_id : str
+            Processing ID.
 
         Returns
         -------
         OutputFiles
+            List of output files
         """
-
         api_headers = self._get_http_headers()
-        url = self._qinertia_cloud_url + "/projects/{0}/output".format(project_id)
+        url = self._qinertia_cloud_url + "/processings/{0}/output".format(processing_id)
         response = requests.request("GET", url, headers=api_headers)
         self._handle_http_error(response)
-        processing = response.json()
-        return processing
+        output_files = response.json()
+        return output_files
 
     def download_output_files(self, folder_path, output_files):
         """Download all output files.
@@ -306,8 +316,25 @@ class Api():
         for file in output_files:
             local_path = posixpath.join(folder_abs_path, file["path"])
             print("Downloading output file to {0}".format(local_path))
-            dir_path = os.path.split(local_path)[0]
-            if not os.path.isdir(dir_path):
+            dir_path = posixpath.split(local_path)[0]
+            if not posixpath.isdir(dir_path):
                 os.makedirs(dir_path)
             response = requests.request("GET", file["url"])
             open(local_path, "wb").write(response.content)
+
+    def delete_container(self, container_id):
+        """Delete a container.
+
+        Parameters
+        ----------
+        container_id : str
+            Container ID.
+
+        Returns
+        -------
+        None
+        """
+        api_headers = self._get_http_headers()
+        url = self._qinertia_cloud_url + "/containers/{0}".format(container_id)
+        response = requests.request("DELETE", url, headers=api_headers)
+        self._handle_http_error(response)

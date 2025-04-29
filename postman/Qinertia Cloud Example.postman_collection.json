@@ -1,12 +1,40 @@
 {
 	"info": {
-		"_postman_id": "6fcc8e80-916c-4bc3-8b0b-ea686d8de416",
+		"_postman_id": "6d9946c2-e759-4f68-ba60-9c8f12b6c948",
 		"name": "Qinertia Cloud Example",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "19292871"
 	},
 	"item": [
 		{
-			"name": "Get organization projects",
+			"name": "Get server info",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true
+				},
+				"followAuthorizationHeader": false,
+				"followOriginalHttpMethod": false,
+				"followRedirects": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{domain}}/api/v1/info",
+					"host": [
+						"{{domain}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"info"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get organization containers",
 			"protocolProfileBehavior": {
 				"disabledSystemHeaders": {
 					"accept": true
@@ -19,30 +47,43 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/organizations/{{organization_id}}/projects",
+					"raw": "{{domain}}/api/v2/organizations/{{organization_id}}/containers?page=0&perPage=100",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
+						"api",
+						"v2",
 						"organizations",
 						"{{organization_id}}",
-						"projects"
+						"containers"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "0"
+						},
+						{
+							"key": "perPage",
+							"value": "100"
+						}
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "[STEP1] Create project",
+			"name": "[STEP1] Create container",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
 							"const { id } = pm.response.json()\r",
-							"pm.collectionVariables.set(\"last_created_project\", id);"
+							"pm.collectionVariables.set(\"last_created_container\", id);"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
@@ -59,74 +100,83 @@
 					}
 				},
 				"url": {
-					"raw": "{{domain}}/organizations/{{organization_id}}/projects",
+					"raw": "{{domain}}/api/v2/organizations/{{organization_id}}/containers",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
+						"api",
+						"v2",
 						"organizations",
 						"{{organization_id}}",
-						"projects"
+						"containers"
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "Get project",
+			"name": "Get container",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/projects/{{last_created_project}}",
+					"raw": "{{domain}}/api/v2/containers/{{last_created_container}}",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
-						"projects",
-						"{{last_created_project}}"
+						"api",
+						"v2",
+						"containers",
+						"{{last_created_container}}"
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "[STEP2] Get project input upload post data",
+			"name": "[STEP2] Add container files",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test(\"Set response data to env\", function () {\r",
-							"    var jsonData = pm.response.json();\r",
-							"\r",
-							"    pm.collectionVariables.set(\"s3_upload_url\", jsonData.url);\r",
-							"    pm.collectionVariables.set(\"s3_upload_bucket\", jsonData.fields.bucket);\r",
-							"    pm.collectionVariables.set(\"s3_upload_algo\", jsonData.fields[\"X-Amz-Algorithm\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_credential\", jsonData.fields[\"X-Amz-Credential\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_date\", jsonData.fields[\"X-Amz-Date\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_key\", jsonData.fields.key);\r",
-							"    pm.collectionVariables.set(\"s3_upload_policy\", jsonData.fields.Policy);\r",
-							"    pm.collectionVariables.set(\"s3_upload_signature\", jsonData.fields[\"X-Amz-Signature\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_security_token\", jsonData.fields[\"X-Amz-Security-Token\"]);\r",
-							"});"
+							"var jsonData = pm.response.json();\r",
+							"if (pm.response.code === 201)\r",
+							"{\r",
+							"    pm.collectionVariables.set(`uploadConfigurations`, JSON.stringify(jsonData));\r",
+							"    pm.collectionVariables.set(`s3_upload_url`, jsonData[0].uploadInfo.url);\r",
+							"}"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
 			"request": {
-				"method": "GET",
+				"method": "POST",
 				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"files\": [\n\t\t{\n\t\t\t\"path\": \"base/sbgs167p.20d\",\n\t\t\t\"type\": \"input\",\n\t\t\t\"size\": 3460858\n\t\t},\n        {\n\t\t\t\"path\": \"rover/Navsight-Auto-Demo.002\",\n\t\t\t\"type\": \"input\",\n\t\t\t\"size\": 21297059\n\t\t},\n        {\n\t\t\t\"path\": \"rover/Navsight-Auto-Demo.json\",\n\t\t\t\"type\": \"input\",\n\t\t\t\"size\": 1134\n\t\t}\n\t]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
 				"url": {
-					"raw": "{{domain}}/projects/{{last_created_project}}/input",
+					"raw": "{{domain}}/api/v2/containers/{{last_created_container}}/files",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
-						"projects",
-						"{{last_created_project}}",
-						"input"
+						"api",
+						"v2",
+						"containers",
+						"{{last_created_container}}",
+						"files"
 					]
 				}
 			},
@@ -139,12 +189,61 @@
 					"listen": "prerequest",
 					"script": {
 						"exec": [
-							"const filename = \"base/sbgs167p.20d\";\r",
-							"const uploadKey = pm.collectionVariables.get(\"s3_upload_key\");\r",
-							"const fileKey = uploadKey.replace(\"${filename}\", filename);\r",
-							"pm.collectionVariables.set(\"s3_upload_key_file1\", fileKey);"
+							"const uploadConfigurations = JSON.parse(pm.collectionVariables.get(\"uploadConfigurations\"));\r",
+							"let selectedFile = null;\r",
+							"let selectedFileName = null;\r",
+							"let matchingConfig = null;\r",
+							"\r",
+							"if (pm.request.body && pm.request.body.formdata)\r",
+							"{\r",
+							"    const fileField = pm.request.body.formdata.find(field => field.key === \"file\");\r",
+							"    if (fileField && fileField.src)\r",
+							"    {\r",
+							"        selectedFile = fileField.src;\r",
+							"        selectedFileName = selectedFile.split(/[\\/\\\\]/).pop();\r",
+							"    }\r",
+							"}\r",
+							"\r",
+							"matchingConfig = uploadConfigurations.find((config) =>\r",
+							"{\r",
+							"    const pathParts = config.path.split('/');\r",
+							"    return pathParts[pathParts.length - 1] === selectedFileName;\r",
+							"});\r",
+							"\r",
+							"const uploadInfo = matchingConfig.uploadInfo;\r",
+							"\r",
+							"Object.entries(uploadInfo.fields).forEach(([key, value]) =>\r",
+							"{\r",
+							"    switch(key) {\r",
+							"        case \"bucket\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_bucket\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Algorithm\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_algo\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Credential\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_credential\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Date\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_date\", value);\r",
+							"            break;\r",
+							"        case \"key\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_key_file\", value);\r",
+							"            break;\r",
+							"        case \"Policy\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_policy\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Signature\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_signature\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Security-Token\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_security_token\", value);\r",
+							"            break;\r",
+							"    }\r",
+							"});"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
@@ -179,7 +278,7 @@
 						},
 						{
 							"key": "key",
-							"value": "{{s3_upload_key_file1}}",
+							"value": "{{s3_upload_key_file}}",
 							"type": "text"
 						},
 						{
@@ -202,12 +301,7 @@
 							"type": "file",
 							"src": "qinertia_cloud/demo/base/sbgs167p.20d"
 						}
-					],
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
+					]
 				},
 				"url": {
 					"raw": "{{s3_upload_url}}",
@@ -225,12 +319,62 @@
 					"listen": "prerequest",
 					"script": {
 						"exec": [
-							"const filename = \"rover/Navsight-Auto-Demo.002\";\r",
-							"const uploadKey = pm.collectionVariables.get(\"s3_upload_key\");\r",
-							"const fileKey = uploadKey.replace(\"${filename}\", filename);\r",
-							"pm.collectionVariables.set(\"s3_upload_key_file2\", fileKey);"
+							"const uploadConfigurations = JSON.parse(pm.collectionVariables.get(\"uploadConfigurations\"));\r",
+							"\r",
+							"let selectedFile = null;\r",
+							"let selectedFileName = null;\r",
+							"let matchingConfig = null;\r",
+							"\r",
+							"if (pm.request.body && pm.request.body.formdata)\r",
+							"{\r",
+							"    const fileField = pm.request.body.formdata.find(field => field.key === \"file\");\r",
+							"    if (fileField && fileField.src)\r",
+							"    {\r",
+							"        selectedFile = fileField.src;\r",
+							"        selectedFileName = selectedFile.split(/[\\/\\\\]/).pop();\r",
+							"    }\r",
+							"}\r",
+							"\r",
+							"matchingConfig = uploadConfigurations.find((config) =>\r",
+							"{\r",
+							"    const pathParts = config.path.split('/');\r",
+							"    return pathParts[pathParts.length - 1] === selectedFileName;\r",
+							"});\r",
+							"\r",
+							"const uploadInfo = matchingConfig.uploadInfo;\r",
+							"\r",
+							"Object.entries(uploadInfo.fields).forEach(([key, value]) =>\r",
+							"{\r",
+							"    switch(key) {\r",
+							"        case \"bucket\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_bucket\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Algorithm\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_algo\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Credential\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_credential\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Date\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_date\", value);\r",
+							"            break;\r",
+							"        case \"key\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_key_file\", value);\r",
+							"            break;\r",
+							"        case \"Policy\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_policy\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Signature\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_signature\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Security-Token\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_security_token\", value);\r",
+							"            break;\r",
+							"    }\r",
+							"});"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
@@ -265,7 +409,7 @@
 						},
 						{
 							"key": "key",
-							"value": "{{s3_upload_key_file2}}",
+							"value": "{{s3_upload_key_file}}",
 							"type": "text"
 						},
 						{
@@ -288,12 +432,7 @@
 							"type": "file",
 							"src": "qinertia_cloud/demo/rover/Navsight-Auto-Demo.002"
 						}
-					],
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
+					]
 				},
 				"url": {
 					"raw": "{{s3_upload_url}}",
@@ -311,12 +450,62 @@
 					"listen": "prerequest",
 					"script": {
 						"exec": [
-							"const filename = \"rover/Navsight-Auto-Demo.json\";\r",
-							"const uploadKey = pm.collectionVariables.get(\"s3_upload_key\");\r",
-							"const fileKey = uploadKey.replace(\"${filename}\", filename);\r",
-							"pm.collectionVariables.set(\"s3_upload_key_file3\", fileKey);"
+							"const uploadConfigurations = JSON.parse(pm.collectionVariables.get(\"uploadConfigurations\"));\r",
+							"\r",
+							"let selectedFile = null;\r",
+							"let selectedFileName = null;\r",
+							"let matchingConfig = null;\r",
+							"\r",
+							"if (pm.request.body && pm.request.body.formdata)\r",
+							"{\r",
+							"    const fileField = pm.request.body.formdata.find(field => field.key === \"file\");\r",
+							"    if (fileField && fileField.src)\r",
+							"    {\r",
+							"        selectedFile = fileField.src;\r",
+							"        selectedFileName = selectedFile.split(/[\\/\\\\]/).pop();\r",
+							"    }\r",
+							"}\r",
+							"\r",
+							"matchingConfig = uploadConfigurations.find((config) =>\r",
+							"{\r",
+							"    const pathParts = config.path.split('/');\r",
+							"    return pathParts[pathParts.length - 1] === selectedFileName;\r",
+							"});\r",
+							"\r",
+							"const uploadInfo = matchingConfig.uploadInfo;\r",
+							"\r",
+							"Object.entries(uploadInfo.fields).forEach(([key, value]) =>\r",
+							"{\r",
+							"    switch(key) {\r",
+							"        case \"bucket\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_bucket\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Algorithm\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_algo\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Credential\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_credential\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Date\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_date\", value);\r",
+							"            break;\r",
+							"        case \"key\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_key_file\", value);\r",
+							"            break;\r",
+							"        case \"Policy\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_policy\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Signature\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_signature\", value);\r",
+							"            break;\r",
+							"        case \"X-Amz-Security-Token\":\r",
+							"            pm.collectionVariables.set(\"s3_upload_security_token\", value);\r",
+							"            break;\r",
+							"    }\r",
+							"});"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
@@ -351,7 +540,7 @@
 						},
 						{
 							"key": "key",
-							"value": "{{s3_upload_key_file3}}",
+							"value": "{{s3_upload_key_file}}",
 							"type": "text"
 						},
 						{
@@ -374,59 +563,12 @@
 							"type": "file",
 							"src": "qinertia_cloud/demo/rover/Navsight-Auto-Demo.json"
 						}
-					],
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
+					]
 				},
 				"url": {
 					"raw": "{{s3_upload_url}}",
 					"host": [
 						"{{s3_upload_url}}"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Get project resource upload post data",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test(\"Set response data to env\", function () {\r",
-							"    var jsonData = pm.response.json();\r",
-							"\r",
-							"    pm.collectionVariables.set(\"s3_upload_url\", jsonData.url);\r",
-							"    pm.collectionVariables.set(\"s3_upload_bucket\", jsonData.fields.bucket);\r",
-							"    pm.collectionVariables.set(\"s3_upload_algo\", jsonData.fields[\"X-Amz-Algorithm\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_credential\", jsonData.fields[\"X-Amz-Credential\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_date\", jsonData.fields[\"X-Amz-Date\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_key\", jsonData.fields.key);\r",
-							"    pm.collectionVariables.set(\"s3_upload_policy\", jsonData.fields.Policy);\r",
-							"    pm.collectionVariables.set(\"s3_upload_signature\", jsonData.fields[\"X-Amz-Signature\"]);\r",
-							"    pm.collectionVariables.set(\"s3_upload_security_token\", jsonData.fields[\"X-Amz-Security-Token\"]);\r",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{domain}}/projects/{{last_created_project}}/resources",
-					"host": [
-						"{{domain}}"
-					],
-					"path": [
-						"projects",
-						"{{last_created_project}}",
-						"resources"
 					]
 				}
 			},
@@ -442,7 +584,18 @@
 							"const { id } = pm.response.json()\r",
 							"pm.collectionVariables.set(\"last_created_processing\", id);"
 						],
-						"type": "text/javascript"
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
 					}
 				}
 			],
@@ -451,7 +604,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"processingJson\": {\r\n        \"version\": \"1.0\",\r\n        \"project\": {\r\n            \"name\":\"Qinertia CLI\",\r\n            \"author\": \"Chuck Berry\",\r\n            \"organization\": \"SBG Systems\",\r\n            \"description\": \"Simple Qinertia CLI project to showcase NAVSIGHT-S with an APOGEE-I tightly coupled post processing.\",\r\n            \"type\":\"sbgECom\",\r\n            \"path\":\"rover/\"\r\n        },\r\n        \"processing\": {\r\n            \"motionProfile\":\"automotive\",\r\n            \"type\":\"insSingle\",\r\n            \"bases\": [\r\n            {\r\n                \"positionMode\": \"published\",\r\n                \"antenna\": {\r\n                \"type\": \"TWIVP6050_CONE  NONE\"\r\n                },\r\n                \"data\": [\r\n                \"base/sbgs167p.20d\"\r\n                ]\r\n            }\r\n            ]\r\n        },\r\n        \"exports\": [\r\n            {\r\n            \"name\":\"Export SBET\",\r\n            \"profile\":\"SBET: 200Hz\",\r\n            \"outputDir\": \"export\"\r\n            },\r\n            {\r\n            \"name\":\"Export ASCII\",\r\n            \"profile\":\"ASCII: INS at 200Hz\",\r\n            \"outputDir\": \"export\"\r\n            }\r\n        ],\r\n        \"reports\": [\r\n            {\r\n            \"name\": \"JSON report\",\r\n            \"template\": \"Minimal JSON\",\r\n            \"outputDir\": \"reports/json\"\r\n            },\r\n            {\r\n            \"name\": \"PDF report\",\r\n            \"template\": \"Full PDF\"\r\n            }\r\n        ]\r\n    }\r\n}",
+					"raw": "{\r\n    \"containerId\": \"{{last_created_container}}\",\r\n    \"processingJson\": {\r\n        \"version\": \"1.0\",\r\n        \"project\": {\r\n            \"name\":\"Qinertia CLI\",\r\n            \"author\": \"Chuck Berry\",\r\n            \"organization\": \"SBG Systems\",\r\n            \"description\": \"Simple Qinertia CLI project to showcase NAVSIGHT-S with an APOGEE-I tightly coupled post processing.\",\r\n            \"type\":\"sbgECom\",\r\n            \"path\":\"rover/\"\r\n        },\r\n        \"processing\": {\r\n            \"motionProfile\":\"automotive\",\r\n            \"type\":\"insSingle\",\r\n            \"bases\": [\r\n            {\r\n                \"positionMode\": \"published\",\r\n                \"antenna\": {\r\n                \"type\": \"TWIVP6050_CONE  NONE\"\r\n                },\r\n                \"data\": [\r\n                \"base/sbgs167p.20d\"\r\n                ]\r\n            }\r\n            ]\r\n        },\r\n        \"exports\": [\r\n            {\r\n            \"name\":\"Export SBET\",\r\n            \"profile\":\"SBET: 200Hz\",\r\n            \"outputDir\": \"export\"\r\n            },\r\n            {\r\n            \"name\":\"Export ASCII\",\r\n            \"profile\":\"ASCII: INS at 200Hz\",\r\n            \"outputDir\": \"export\"\r\n            }\r\n        ],\r\n        \"reports\": [\r\n            {\r\n            \"name\": \"JSON report\",\r\n            \"template\": \"Minimal JSON\",\r\n            \"outputDir\": \"reports/json\"\r\n            },\r\n            {\r\n            \"name\": \"PDF report\",\r\n            \"template\": \"Full PDF\"\r\n            }\r\n        ]\r\n    }\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -459,13 +612,15 @@
 					}
 				},
 				"url": {
-					"raw": "{{domain}}/projects/{{last_created_project}}/processings",
+					"raw": "{{domain}}/api/v2/organizations/{{organization_id}}/processings",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
-						"projects",
-						"{{last_created_project}}",
+						"api",
+						"v2",
+						"organizations",
+						"{{organization_id}}",
 						"processings"
 					]
 				}
@@ -478,11 +633,13 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/processings/{{last_created_processing}}",
+					"raw": "{{domain}}/api/v2/processings/{{last_created_processing}}",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
+						"api",
+						"v2",
 						"processings",
 						"{{last_created_processing}}"
 					]
@@ -493,34 +650,39 @@
 		{
 			"name": "Cancel processing",
 			"request": {
-				"method": "DELETE",
+				"method": "POST",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/processings/{{last_created_processing}}",
+					"raw": "{{domain}}/api/v2/processings/{{last_created_processing}}/cancel",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
+						"api",
+						"v2",
 						"processings",
-						"{{last_created_processing}}"
+						"{{last_created_processing}}",
+						"cancel"
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "[STEP6] Get project output result",
+			"name": "[STEP6] Get processing output result",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/projects/{{last_created_project}}/output",
+					"raw": "{{domain}}/api/v2/processings/{{last_created_processing}}/output",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
-						"projects",
-						"{{last_created_project}}",
+						"api",
+						"v2",
+						"processings",
+						"{{last_created_processing}}",
 						"output"
 					]
 				}
@@ -533,11 +695,13 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{domain}}/processings/{{last_created_processing}}/errors",
+					"raw": "{{domain}}/api/v2/processings/{{last_created_processing}}/errors",
 					"host": [
 						"{{domain}}"
 					],
 					"path": [
+						"api",
+						"v2",
 						"processings",
 						"{{last_created_processing}}",
 						"errors"
@@ -635,7 +799,7 @@
 	"variable": [
 		{
 			"key": "domain",
-			"value": "https://qinertia-api.sbg-systems.com/api/v1"
+			"value": "https://qinertia-api.sbg-systems.com"
 		},
 		{
 			"key": "auth_endpoint",
@@ -654,7 +818,7 @@
 			"value": "CHANGE_ME"
 		},
 		{
-			"key": "last_created_project",
+			"key": "last_created_container",
 			"value": ""
 		},
 		{
@@ -662,35 +826,7 @@
 			"value": ""
 		},
 		{
-			"key": "s3_upload_algo",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_bucket",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_credential",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_date",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_key",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_policy",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_security_token",
-			"value": ""
-		},
-		{
-			"key": "s3_upload_signature",
+			"key": "uploadConfigurations",
 			"value": ""
 		},
 		{
@@ -698,16 +834,44 @@
 			"value": ""
 		},
 		{
-			"key": "s3_upload_key_file1",
-			"value": ""
+			"key": "s3_upload_bucket",
+			"value": "",
+			"type": "string"
 		},
 		{
-			"key": "s3_upload_key_file2",
-			"value": ""
+			"key": "s3_upload_algo",
+			"value": "",
+			"type": "string"
 		},
 		{
-			"key": "s3_upload_key_file3",
-			"value": ""
+			"key": "s3_upload_credential",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "s3_upload_date",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "s3_upload_key_file",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "s3_upload_policy",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "s3_upload_signature",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "s3_upload_security_token",
+			"value": "",
+			"type": "string"
 		}
 	]
 }

@@ -37,7 +37,8 @@ SBG Systems has designed three code samples to ease as much as possible evaluati
  - `python` is a simple Python code sample targeting computer to cloud workflows.
  
 Each code sample execute the following steps:
- - Create a new project
+ - Create a new container
+ - Add container files
  - Upload data to Amazon S3
  - Start processing job
  - Poll processing job status

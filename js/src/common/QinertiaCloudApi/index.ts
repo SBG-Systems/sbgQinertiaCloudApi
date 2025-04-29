@@ -1,5 +1,5 @@
 import Axios from 'axios';
-import { CreateProject, Project, PresignedPost, OutputData, StartProcessing, Processing } from './models';
+import { PresignedPost, OutputData, StartProcessing, Processing, CreateContainer, Container, AddContainerFiles, ContainerFile } from './models';
 
 export type QinertiaCloudApiProps = {
     getAccessToken: () => Promise<string> | string;
@@ -12,7 +12,7 @@ export class QinertiaCloudApi {
 
     constructor(props: QinertiaCloudApiProps) {
         this.getAccessToken = async () => props.getAccessToken();
-        this.baseUrl = `${props.baseUrl}/api/v1`;
+        this.baseUrl = `${props.baseUrl}/api/v2`;
     }
 
     async getAxiosInstance() {
@@ -26,61 +26,53 @@ export class QinertiaCloudApi {
         });
     }
 
-    async createProject(
-        organizationId: string,
-        data: CreateProject,
-    ) {
-        const axiosInstance = await this.getAxiosInstance();
-        return (await axiosInstance.post<Project>(
-            `/organizations/${organizationId}/projects`, data,
-        )).data;
-    }
+	async createContainer(
+		organizationId: string,
+		data: CreateContainer,
+	) {
+		const axiosInstance = await this.getAxiosInstance();
+		return (await axiosInstance.post<Container>(
+			`/organizations/${organizationId}/containers`, data,
+		)).data;
+	}
 
-    async getInputPostData(
-        projectId: string,
-    ) {
-        const axiosInstance = await this.getAxiosInstance();
-        return (await axiosInstance.get<PresignedPost>(
-            `/projects/${projectId}/input`,
+    async addContainerFiles(
+		containerId: string,
+		data: AddContainerFiles,
+	) {
+		const axiosInstance = await this.getAxiosInstance();
+		return (await axiosInstance.post<ContainerFile[]>(
+			`/containers/${containerId}/files`, data
         )).data;
-    }
+	}
 
-    async getResourcesPostData(
-        projectId: string,
-    ) {
-        const axiosInstance = await this.getAxiosInstance();
-        return (await axiosInstance.get<PresignedPost>(
-            `/projects/${projectId}/resources`,
-        )).data;
-    }
+    async getProcessingOutputData(
+		processingId: string,
+	) {
+		const axiosInstance = await this.getAxiosInstance();
+		return (await axiosInstance.get<OutputData[]>(
+			`/processings/${processingId}/output`,
+		)).data;
+	}
 
-    async getOutputData(
-        projectId: string,
-    ) {
-        const axiosInstance = await this.getAxiosInstance();
-        return (await axiosInstance.get<OutputData[]>(
-            `/projects/${projectId}/output`,
-        )).data;
-    }
-
-    async deleteProject(
-        projectId: string,
-    ) {
-        const axiosInstance = await this.getAxiosInstance();
-        await axiosInstance.delete(
-            `/projects/${projectId}`,
-        );
-    }
+    async deleteContainer(
+		containerId: string,
+	) {
+		const axiosInstance = await this.getAxiosInstance();
+		await axiosInstance.delete(
+			`/containers/${containerId}`,
+		);
+	}
 
     async startProcessing(
-        projectId: string,
-        data: StartProcessing,
-    ) {
-        const axiosInstance = await this.getAxiosInstance();
-        return (await axiosInstance.post<Processing>(
-            `/projects/${projectId}/processings`, data,
-        )).data;
-    }
+		organizationId: string,
+		data: StartProcessing,
+	) {
+		const axiosInstance = await this.getAxiosInstance();
+		return (await axiosInstance.post<Processing>(
+			`/organizations/${organizationId}/processings`, data,
+		)).data;
+	}
 
     async getProcessing(
         processingId: string,
